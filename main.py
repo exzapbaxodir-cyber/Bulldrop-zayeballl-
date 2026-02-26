@@ -4,18 +4,14 @@ import random
 import sqlite3
 from aiogram import Bot, Dispatcher, types
 from aiogram.utils import executor
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 from config import TOKEN, ADMIN_ID
 
-# ======================
-# Telegram bot setup
-# ======================
+# ===== Telegram bot setup =====
 bot = Bot(token=TOKEN)
 dp = Dispatcher(bot)
 
-# ======================
-# Database setup
-# ======================
+# ===== Database setup =====
 conn = sqlite3.connect("bot.db", check_same_thread=False)
 cursor = conn.cursor()
 cursor.execute("""
@@ -33,9 +29,7 @@ CREATE TABLE IF NOT EXISTS promocodes (
 """)
 conn.commit()
 
-# ======================
-# Flask web admin panel
-# ======================
+# ===== Flask web admin panel =====
 app = Flask(__name__)
 
 @app.route("/")
@@ -48,12 +42,21 @@ def run_flask():
 
 threading.Thread(target=run_flask).start()
 
-# ======================
-# Telegram handlers
-# ======================
+# ===== Telegram handlers =====
 @dp.message_handler(commands=['start'])
 async def start(message: types.Message):
     user_id = message.from_user.id
+    args = message.get_args()
+    # Referral tizimi
+    if args.isdigit():
+        ref_id = int(args)
+        if ref_id != user_id:
+            cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
+            if not cursor.fetchone():
+                cursor.execute("INSERT INTO users (user_id, balance, referrals) VALUES (?, ?, ?)", (user_id, 5, 0))
+                cursor.execute("UPDATE users SET balance = balance + 3, referrals = referrals + 1 WHERE user_id=?", (ref_id,))
+                conn.commit()
+    # Yangi foydalanuvchi
     cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
     if not cursor.fetchone():
         cursor.execute("INSERT INTO users (user_id) VALUES (?)", (user_id,))
@@ -93,8 +96,20 @@ async def game_advice(message: types.Message):
 
     await message.answer(f"💡 Maslahat:\n{advice}")
 
-# ======================
-# Run bot
-# ======================
+# Promokod bo‘limi
+@dp.message_handler(lambda message: message.text.lower().startswith("promo "))
+async def promo(message: types.Message):
+    code = message.text.split()[1].upper()
+    cursor.execute("SELECT reward FROM promocodes WHERE code=?", (code,))
+    res = cursor.fetchone()
+    if res:
+        reward = res[0]
+        cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id=?", (reward, message.from_user.id))
+        conn.commit()
+        await message.answer(f"🎁 Promokod qabul qilindi! {reward} coin qo‘shildi.")
+    else:
+        await message.answer("❌ Noto‘g‘ri promokod!")
+
+# ===== Run bot =====
 if __name__ == "__main__":
     executor.start_polling(dp, skip_updates=True)
