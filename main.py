@@ -69,7 +69,7 @@ async def balance(message: types.Message):
     bal = cursor.fetchone()[0]
     await message.answer(f"💰 Balans: {bal} coin")
 
-# O‘yinlar bo‘yicha maslahat
+# ===== O'yinlar bo'yicha kreativ maslahatlar =====
 @dp.message_handler(lambda message: message.text.lower() in ['narvon','sapyor','crash','gildirak','minora'])
 async def game_advice(message: types.Message):
     user_id = message.from_user.id
@@ -83,20 +83,45 @@ async def game_advice(message: types.Message):
 
     game = message.text.lower()
     advice = ""
+
     if game == "narvon":
-        advice = f"{random.randint(1,7)} pog'onagacha boring"
+        # Narvon: pog'ona raqamlari
+        steps = random.randint(1,7)
+        advice = "🪜 " + "->".join(str(i+1) for i in range(steps))
+
     elif game == "sapyor":
-        advice = f"Xavfsiz katak: {random.randint(1,25)}"
+        # Sapyor: 5x5 xarita, 3 bomba
+        size = 5
+        bombs = 3
+        board = [['⬜' for _ in range(size)] for _ in range(size)]
+        bomb_positions = random.sample(range(size*size), bombs)
+        for pos in bomb_positions:
+            row = pos // size
+            col = pos % size
+            board[row][col] = '🧨'
+        advice = "\n".join("".join(row) for row in board)
+
     elif game == "crash":
-        advice = f"x{round(random.uniform(1.5,3.5),2)} da chiqing"
+        # Crash: x koeffitsienti
+        coef = round(random.uniform(1.2, 3.5), 2)
+        advice = f"💡 Taxminiy to‘xtash x: {coef}x"
+
     elif game == "gildirak":
-        advice = random.choice(["Qizil","Yashil","Ko‘k"])
+        # Gildirak: ranglar 🟦 12, 🟩 7, 🟥 7, 🟪 1
+        wheel = ['🟦']*12 + ['🟩']*7 + ['🟥']*7 + ['🟪']
+        choice = random.choice(wheel)
+        visual = random.choices(wheel, k=10)
+        advice = "".join(visual) + f"\n🎯 Taxminiy to'xtash rangi: {choice}"
+
     elif game == "minora":
-        advice = f"{random.randint(1,10)} qavatgacha boring"
+        # Minora: 8 qavat, chap/ong
+        floors = 8
+        directions = [random.choice(['⬅️','➡️']) for _ in range(floors)]
+        advice = "\n".join(f"Qavat {i+1}: {dir}" for i, dir in enumerate(directions))
 
-    await message.answer(f"💡 Maslahat:\n{advice}")
+    await message.answer(f"💡 Maslahat ({game.capitalize()}):\n{advice}")
 
-# Promokod bo‘limi
+# ===== Promokod bo‘limi =====
 @dp.message_handler(lambda message: message.text.lower().startswith("promo "))
 async def promo(message: types.Message):
     code = message.text.split()[1].upper()
